@@ -259,18 +259,297 @@
   scanf return SCANF;
 %%
 
-struct row
+struct symbol
 {
 	char token[100];
-	char attr[100];
-	int attrno;
-}r[100000];
+	char type[100];
+	int typeno;
+}symbolTable[100000];
 
 int main(void)
 {
+  int newToken, // The current token being processed
+      tokenType, //Whether token is Keyword, Operators etc
+      tokenTypeCount[20]={0}, //Number of tokens of that particular type
+      i=0, // Number of symbols in the symbol table
+      j,k, // Iterators
+      ba_c=0,ba_o=0,ba_l, // Number of open and close paranthesis, last line where the open parantesis was used
+      bb_o=0,bb_c=0,bb_l, // Number of open and close square braces,  last line where the open sqaure brace was used
+      bc_o=0,bc_c=0,bc_l, // Number of open and close curly braces,  last line where the open curly brace was used
+      quoteLine=0, // Last place where quote was used
+      quoteCount=0, // Number of double quotes
+      rep=0; // Flag to denote whether the current token is already in symbol table
+
+  //Taking the input program
+  yyin= fopen("test.c","r");
+
+  //Reading a single token from the program
+  newToken = yylex();
+  printf("\n");
+
+  int mlc=0, // Flag to denote whether current token is part of a multiline comment
+      slcline=0, // Line number of the single line comment
+      mlcline; // Starting line number of multi line comment
+
+  while(newToken)
+  {
+    rep = 0;
+
+    if(yylineno==slcline) // If token belongs to a single line comment, ignore all the tokens
+    {
+      newToken=yylex();
+      continue;
+    }
+
+    for(k=0;k<i;k++) // Checking whether token already exists is symbol table
+    {
+      if(!(strcmp(symbolTable[k].token,yytext)))
+      {
+        rep = 1;
+        break;
+      }
+    }
+
+    if(yylineno!=quoteLine && quoteLine != 0)
+    {
+      if(quoteCount%2 != 0)
+        printf("\n-------------ERROR : INCOMPLETE STRING at Line %d------------------\n",quoteLine);
+      quoteCount=0;
+    }
+
+    if(ba_c > ba_o)
+      printf("\n-------------ERROR : UNMATCHED ')' at Line %d------------------\n", yylineno);
+
+    if(bb_c>bb_o)
+      printf("\n-------------ERROR : UNMATCHED '}' at Line %d------------------\n", yylineno);
+
+    if(bc_c>bc_o)
+      printf("\n-------------ERROR : UNMATCHED ']' at Line %d------------------\n", yylineno);
+
+    if(rep==0 && newToken!=65 && newToken!=66 && newToken!=67 && mlc==0 && quoteCount%2==0)
+    {
+      strcpy(symbolTable[i].token,yytext);
+    }
+
+    if(((newToken>=1 && newToken<=8)) && mlc==0) // Keywords
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=0;
+        strcpy(symbolTable[i].type,"KEYWORD");
+      }
+      printf("%s\t\tKeyword----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken==12 && mlc==0) // Identifiers
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=1;
+        strcpy(symbolTable[i].type,"ID");
+      }
+      printf("%s\t\tIdentifier----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken==13 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=2;
+        strcpy(symbolTable[i].type,"CONSTANT");
+      }
+      printf("%s\t\tConstant----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken>=14 && newToken<=32 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=3;
+        strcpy(symbolTable[i].type,"OPERATOR");
+      }
+      printf("%s\t\tOperator----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken>=33 && newToken<=41 && mlc==0)
+    {
+      if(newToken==41)
+      {
+        quoteCount++;
+        quoteLine=yylineno;
+      }
+      if(newToken==34)
+        ba_o++;
+      if(newToken==35)
+        ba_c++;
+      if(newToken==36)
+        bb_o++;
+      if(newToken==37)
+        bb_c++;
+      if(newToken==38)
+        bc_o++;
+      if(newToken==39)
+        bc_c++;
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=4;
+        strcpy(symbolTable[i].type,"SPECIAL CHAR");
+      }
+      printf("%s\t\tSpecial Character----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken==42 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=5;
+        strcpy(symbolTable[i].type,"HEADER");
+      }
+      printf("%s\t\tHeader----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken>=43 && newToken<=44 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=6;
+        strcpy(symbolTable[i].type,"FORMAT SPECIFIER");
+      }
+      printf("%s\t\tFormat Specifier----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken==47 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=7;
+        strcpy(symbolTable[i].type,"ARRAY");
+      }
+      printf("%s\t\tArray----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken==48 && mlc==0)
+    {
+      tokenType=15;
+      printf("%s\t\tSingle Line Comment----------Line %d\n",yytext,yylineno);
+      slcline=yylineno;
+    }
+
+    else if(newToken==49)
+    {
+      mlc=1;
+      printf("%s\t\tMulti Line Comment Start----------Line %d\n",yytext,yylineno);
+      mlcline = yylineno;
+
+    }
+
+    else if(newToken==50 && mlc==1)
+    {
+      mlc=0;
+      printf("%s\t\tMulti Line Comment End----------Line %d\n",yytext,yylineno);
+      mlcline=0;
+    }
+
+    else if(newToken==50 && mlc==0)
+      printf("\n---------------ERROR : UNMATCHED NESTED END COMMENT-------------\n");
+
+    else if(newToken==51 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=8;
+        strcpy(symbolTable[i].type,"Preprocessor Directive");
+      }
+      printf("%s\t\tPreprocessor Directive----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken>=52 && newToken<=53 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=9;
+        strcpy(symbolTable[i].type,"Pre Defined Function");
+      }
+      printf("%s\t\tPre Defined Function----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken==54 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=10;
+        strcpy(symbolTable[i].type,"User Defined Function");
+      }
+      printf("%s\t\tUser Defined Function----------Line %d\n",yytext,yylineno);
+    }
+
+    else if(newToken==55 && mlc==0)
+    {
+      if(rep==0 && quoteCount%2==0)
+      {
+        tokenType=11;
+        strcpy(symbolTable[i].type,"Main Function");
+      }
+      printf("%s\t\tMain Function----------Line %d\n",yytext,yylineno);
+    }
+
+    if(rep==0 && newToken!=48 && newToken!=49 && newToken!=50 && mlc==0 && quoteCount%2==0)
+    {
+      tokenTypeCount[tokenType]++;
+      symbolTable[i].typeno = tokenTypeCount[tokenType];
+      i++;
+    }
+    newToken=yylex();
+  }
+
+  if(mlc==1)
+    printf("\n--------------------ERROR : UNMATCHED COMMENT starting at Line %d------------\n",mlcline);
+
+  if(ba_c!=ba_o)
+    printf("\n--------------------ERROR : UNMATCHED '(' at Line %d ------------------------\n",ba_l);
+
+  if(bb_c!=bb_o)
+    printf("\n--------------------ERROR : UNMATCHED '{' at Line %d ------------------------\n",bb_l);
+
+  if(bc_c!=bc_o)
+    printf("\n--------------------ERROR ! UNMATCHED '[' at Line %d ------------------------\n",bc_l);
+
+  printf("\n------------Symbol Table---------------------\n\nSNo\tToken\t\tAttribute\t\tMemory Location\n\n");
+
+  for(j=0;j<i;j++)
+    printf("%d\t%s\t\t< %s , %d >\t\t%d\n",symbolTable[j].sno,symbolTable[j].token,symbolTable[j].type,symbolTable[j].typeno,symbolTable[j].addr);
+
+  return 0;
 }
 
 int yywrap(void)
 {
 	return 1;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
