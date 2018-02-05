@@ -1,0 +1,14 @@
+Output 3:
+Successfully parsed
+
+Output 4:
+Syntax error at line 12
+Pasring failed
+
+Output 5:
+Successfully parsed
+
+Output 6:
+Syntax error at line 6
+Syntax error at line 9
+Parsing failed
