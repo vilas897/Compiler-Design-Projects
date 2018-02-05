@@ -1,9 +1,16 @@
+Output 1:
+Successfully parsed
+
+Output 2:
+Syntax error at line 5
+Parsing failed
+
 Output 3:
 Successfully parsed
 
 Output 4:
 Syntax error at line 12
-Pasring failed
+Parsing failed
 
 Output 5:
 Successfully parsed
