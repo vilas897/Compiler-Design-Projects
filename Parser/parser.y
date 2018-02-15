@@ -398,4 +398,7 @@ yyerror(char *s)
 {
 	err=1;
 	printf("\nLine %d : %s\n", (yylineno), s);
+	showSymbolTable();
+	showConstantTable();
+	exit(0);
 }
