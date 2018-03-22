@@ -1,0 +1,25 @@
+1. Symbol table insertion for different scopes
+
+2. Multiple functions
+
+3. Undeclared variable
+
+4. Redeclaration in same scope
+
+5. Out of scope
+
+6. Type mismatch
+
+7. Redeclaration of pre defined function
+
+8. Return type of function mismatch
+
+9. Same variable different scopes
+
+10. Different data types
+
+11. Usage of non-array variable with subscript
+
+12. Out of bounds subscript
+
+13. Usage of array identifier without subscript

@@ -20,6 +20,7 @@
 		int addr;
 		float fvalue;
 		int scope;
+		int arrFlag;
 	}st[100];
 
 	int n=0,arr[10];
@@ -46,6 +47,21 @@
 	int returntype_func(int ct)
 	{
 		return arr[ct-1];
+	}
+
+	int isArray(char* a)
+	{
+		for(i=0;i<=n;i++)
+		{
+			if(!strcmp(a,st[i].token))
+			{
+				if(st[i].arrFlag==1)
+					return st[i].fvalue;
+						else
+							return 0;
+			 }
+		}
+		return 0;
 	}
 
 	int returnscope(char *a,int cs)
@@ -113,7 +129,7 @@
 		}
 	}
 
-	void insert(char *name, int type, int addr)
+	void insert(char *name, int type, int addr, int arrFlag)
 	{
 		int i;
 		if(lookup(name))
@@ -123,6 +139,7 @@
 			st[n].type[st[n].tn-1]=type;
 			st[n].addr=addr;
 			st[n].sno=n+1;
+			st[n].arrFlag = arrFlag;
 			n++;
 		}
 		else
@@ -141,7 +158,7 @@
 		return;
 	}
 
-	void insert_dup(char *name, int type, int addr,int s_c)
+	void insert_dup(char *name, int type, int addr,int s_c, int arrFlag)
 	{
 		strcpy(st[n].token,name);
 		st[n].tn=1;
@@ -149,6 +166,7 @@
 		st[n].addr=addr;
 		st[n].sno=n+1;
 		st[n].scope=s_c;
+		st[n].arrFlag=arrFlag;
 		n++;
 		return;
 	}
@@ -157,13 +175,13 @@
 	{
 		int i,j;
 		printf("\nSymbol Table\n\n");
-		printf("\nSNo.\tToken\tAddress\tValue\tScope\tType\n");
+		printf("\nSNo.\tToken\tAddress\tValue\tScope\tIsArray\tType\n");
 		for(i=0;i<n;i++)
 		{
 			if(st[i].type[0]==258 || st[i].type[0]==261|| st[i].type[0]==262|| st[i].type[0]==263)
-				printf("%d\t%s\t%d\t%d\t%d",st[i].sno,st[i].token,st[i].addr,(int)st[i].fvalue,st[i].scope);
+				printf("%d\t%s\t%d\t%d\t%d\t%d",st[i].sno,st[i].token,st[i].addr,(int)st[i].fvalue,st[i].scope, st[i].arrFlag);
 			else
-				printf("%d\t%s\t%d\t%.1f\t%d",st[i].sno,st[i].token,st[i].addr,st[i].fvalue,st[i].scope);
+				printf("%d\t%s\t%d\t%.1f\t%d\t%d",st[i].sno,st[i].token,st[i].addr,st[i].fvalue,st[i].scope, st[i].arrFlag);
 			for(j=0;j<st[i].tn;j++)
 			{
 				if(st[i].type[j]==258)
@@ -221,8 +239,8 @@ Function
 		printf("Error : Type mismatch in redeclaration of %s : Line %d\n",$2,printline());
 	else
 	{
-		insert($2,FUNCTION,g_addr);
-		insert($2,$1,g_addr);
+		insert($2,FUNCTION,g_addr, 0);
+		insert($2,$1,g_addr, 0);
 		g_addr+=4;
 	}
 	};
@@ -278,6 +296,7 @@ expr1
 
 secondary_assignment : ID '=' secondary_assignment
 	{
+	  c=0;
 		int scope_curr=returnscope($1,stack[index1-1]);
 		//printf("Scope: %d",scope_curr);
 		int type=returntype($1,scope_curr);
@@ -290,26 +309,52 @@ secondary_assignment : ID '=' secondary_assignment
 			if((scope<=currscope && end[scope]==0) && !(scope==0))
 				update_value($1,$3,currscope);
 		}
+		if(isArray($1))
+				printf("\nError: Array Identfier has no subscript: Line %d\n", printline());
+
 		}
 
 	| ID ',' secondary_assignment    {
 					if(lookup($1))
 						printf("\nUndeclared Variable %s : Line %d\n",$1,printline());
+
+						if(isArray($1))
+								printf("\nError: Array identfier has no subscript: Line %d\n", printline());
+
 				}
 	| assignment_exp
 	| consttype ',' secondary_assignment
 	| ID  {
 		if(lookup($1))
 			printf("\nUndeclared Variable %s : Line %d\n",$1,printline());
+
+			if(isArray($1))
+				printf("\nError: Non-array variable used as an array: Line %d\n", printline());
+
 		}
+	| exp
 	| consttype
 	;
 
-assignment_exp : ID '=' exp {c=0;}
-		| ID '=' '(' exp ')'
+assignment_exp :  ID '[' INT_CONST ']' '=' exp {
+			if(lookup($1))
+				printf("\nUndeclared Variable %s : Line %d\n",$1,printline());
+
+			if(isArray($1)==0)
+				printf("\nError: Non-array variable used as an array: Line %d\n", printline());
+
+				float bound = isArray($1);
+
+				if(isArray($1) && (atoi($3) >= bound || atoi($3) < 0))
+					printf("\nError: Array subscript out of bounds : Line %d\n", printline());
+
+		}
 		;
 
 exp : ID {
+	if(isArray($1))
+	 printf("\nError: Array identifier has no subscript: Line %d\n", printline());
+
 	if(c==0)
 	{
 		c=1;
@@ -334,6 +379,40 @@ exp : ID {
   else
     printf("\nError : Undeclared Variable %s : Line %d\n",$1,printline());
 	}
+	| ID '[' INT_CONST ']'{
+		if(c==0)
+		{
+			c=1;
+			int scope_curr=returnscope($1,stack[index1-1]);
+			b=returntype($1,scope_curr);
+		}
+		else
+		{
+			int scope_curr1=returnscope($1,stack[index1-1]);
+			if(b!=returntype($1,scope_curr1))
+				printf("\nError : Type Mismatch : Line %d\n",printline());
+		}
+		if(!lookup($1))
+		{
+			int currscope=stack[index1-1];
+			//printf("\ncurrscope%d Current Scope: %d\n", currscope, stack[index1-1]);
+			int scope=returnscope($1,currscope);
+			//printf("Curr scope: %d %d\n", currscope,scope);
+			if(!(scope<=currscope && end[scope]==0))
+				printf("\nError : Variable %s out of scope : Line %d\n",$1,printline());
+		}
+	  else
+	    printf("\nError : Undeclared Variable %s : Line %d\n",$1,printline());
+
+		if(isArray($1)==0)
+			printf("\nError: Non-array variable used as an array: Line %d\n", printline());
+
+		float bound = isArray($1);
+
+		if(isArray($1) && (atoi($3) >= bound || atoi($3) < 0) )
+			printf("\nError: Array subscript out of bounds : Line %d\n", printline());
+
+		}
 	| exp '+' exp
 	| exp '-' exp
 	| exp '*' exp
@@ -343,6 +422,7 @@ exp : ID {
 	| '(' exp '*' exp ')'
 	| '(' exp '/' exp ')'
 	| consttype
+	| '(' exp ')'
 	;
 
 consttype : INT_CONST
@@ -363,7 +443,7 @@ Declaration
 					printf("\nError : Redeclaration of %s : Line %d\n",$2,printline());
 				else
 				{
-					insert_dup($2,$1,g_addr,currscope);
+					insert_dup($2,$1,g_addr,currscope, 0);
 					update_value($2,$4,stack[index1-1]);
 					g_addr+=4;
 				}
@@ -371,7 +451,7 @@ Declaration
 			else
 			{
 				int scope=stack[index1-1];
-				insert($2,$1,g_addr);
+				insert($2,$1,g_addr, 0);
 				insertscope($2,scope);
 				update_value($2,$4,stack[index1-1]);
 				g_addr+=4;
@@ -386,14 +466,14 @@ Declaration
 				printf("\nError : Redeclaration of %s : Line %d\n",$2,printline());
 			else
 			{
-				insert_dup($2,$1,g_addr,currscope);
+				insert_dup($2,$1,g_addr,currscope, 0);
 				g_addr+=4;
 			}
 		}
 		else
 		{
 			int scope=stack[index1-1];
-			insert($2,$1,g_addr);
+			insert($2,$1,g_addr, 0);
 			insertscope($2,scope);
 			g_addr+=4;
 		}
@@ -413,12 +493,15 @@ Declaration
 				}
 
 	| Type ID '[' INT_CONST ']' ';' {
-						insert($2,ARRAY,g_addr);
-						insert($2,$1,g_addr);
+						insert($2,ARRAY,g_addr,1);
+						insert($2,$1,g_addr,1);
 						update_value($2,$4,stack[index1-1]);
 						g_addr+=4;
+						if(atoi($4)<=0)
+						{
+							printf("\nError: Illegal array subscript %d : Line %d\n", atoi($4), printline());
+						}
 					}
-	| ID '[' secondary_assignment ']' ';'
 	| error
 	;
 
