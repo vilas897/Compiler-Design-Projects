@@ -1,8 +1,9 @@
 #include <stdio.h>
 int main()
 {
-	int ab=3;
-	int a[10];
-	int x=a[ab-2];
+	int temp=5;
+	int arr[100];
+	arr[3]=2;
+	int k=arr[temp-3];
 	return 0;
 }

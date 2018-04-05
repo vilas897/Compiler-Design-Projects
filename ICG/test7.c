@@ -3,7 +3,7 @@
 void sum(int a, int b)
 {
     int c=0;
-    c = 1;
+
     while(a>7)
     {
       b=6;

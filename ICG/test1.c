@@ -2,9 +2,9 @@
 
 int main()
 {
-    int a=5;
-	int b=6;
-	int c=7;
-	int d=a+b-c*a/d;
-	return 0;
+    int x=1;
+    int y=2;
+    int z=3;
+    int ans=x+y+z-x*y/z;
+    return 0;
 }

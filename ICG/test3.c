@@ -2,11 +2,11 @@
 
 int main()
 {
-	int a=5;
-	int b=6;
-	while(a>7)
+	int x=5;
+	int y=6;
+	while(x>7)
 	{
-		b=b+1;
+		y=y+1;
 	}
 	return 0;
 }

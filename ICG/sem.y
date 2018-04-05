@@ -2,30 +2,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include<string.h>
-int g_addr = 100;
-int i=1,lnum1=0,label1[20],ltop1;
-int stack[100],index1=0,end[100],returnArr[10],returnCount,c,b,fl,top=0,label[20],lnum=0,ltop=0;
-char tokenstack[100][10];
-char i_[2]="0";
-char temp[2]="t";
-char null[2]=" ";
-int type=258;
-	int fname[100];
-	int nP;
-	int fTypes[100];
-	int fTypes2[100];
-	int temptype;
-	int it;
+
+%token WHILE IF RETURN STRING PRINT FUNCTION ARRAY ELSE
+%left LE GE EQ NEQ AND OR '<' '>'
+%right '='
+%left '+' '-'
+%left '*' '/'
+%type<str> ID NUM REAL LE GE EQ NEQ AND OR assignment secondary_assignment constant '=' '+' '-' '*' '/' expression additive_exp multiplicative_exp
+%type<ival> INT FLOAT VOID Type
+
+int mem_address = 100,i=1,type=258,fname[100], nP, fTypes[100], fTypes2[100],temptype,it,stack[100],stackindex=0,end[100],returnArr[10],returnCount,c,b,fl,top=0,label[20],label_index=0,ltop=0,n=0,returnArr[10],iter=0;;
+char tokenstack[100][10],i_[2]="0",temp[2]="t", null[2]=" ";
+float t[100];
 
 void yyerror(char *s);
 int printline();
 
-struct sym
+struct symbol
 {
-	int sno;
+	int num;
 	char token[100];
 	int type[100];
-	int tn;
+	int typenum;
 	int addr;
 	float fvalue;
 	int scope;
@@ -34,13 +32,57 @@ struct sym
 	int numParams;
 }st[100];
 
-int n=0,returnArr[10];
-float t[100];
-int iter=0;
+void blockBegin()
+{
+	stack[stackindex]=i;
+	i++;
+	stackindex++;
+	return;
+}
+
+void blockEnd()
+{
+	stackindex--;
+	end[stack[stackindex]]=1;
+	stack[stackindex]=0;
+	return;
+}
 
 int returntype_func(int returnCount)
 {
 	return returnArr[returnCount-1];
+}
+
+void insertFunc(char *name, int type, int addr, int arrFlag, int params[100], int numParams)
+{
+	int i;
+	if(lookup(name))
+	{
+		strcpy(st[n].token,name);
+		st[n].typenum=1;
+		st[n].type[st[n].typenum-1]=type;
+		st[n].addr=addr;
+		st[n].num=n+1;
+		st[n].arrFlag = arrFlag;
+		for(int j=0; j<numParams; j++)
+			st[n].fType[j] = params[j];
+		st[n].numParams = numParams;
+		n++;
+	}
+	else
+	{
+		for(i=0;i<n;i++)
+		{
+			if(!strcmp(name,st[i].token))
+			{
+				st[i].typenum++;
+				st[i].type[st[i].typenum-1]=type;
+				break;
+			}
+		}
+	}
+
+	return;
 }
 
 int returntype(char *a,int scope_curr)
@@ -67,13 +109,13 @@ void getParams(char* a)
 	}
 
 
-void storereturn( int returnCount, int returntype )
+void pushReturnType( int returnCount, int returntype )
 {
 	returnArr[returnCount] = returntype;
 	return;
 }
 
-void insertscope(char *a,int scope)
+void addScope(char *a,int scope)
 {
 	int i;
 	for(i=0;i<n;i++)
@@ -86,7 +128,7 @@ void insertscope(char *a,int scope)
 	}
 }
 
-int returnscope(char *a,int cs)
+int getScope(char *a,int cs)
 {
 	int i;
 	int max = 0;
@@ -111,38 +153,6 @@ int lookup(char *a)
 	}
 	return 1;
 }
-
-void insertFunc(char *name, int type, int addr, int arrFlag, int params[100], int numParams)
-	{
-		int i;
-		if(lookup(name))
-		{
-			strcpy(st[n].token,name);
-			st[n].tn=1;
-			st[n].type[st[n].tn-1]=type;
-			st[n].addr=addr;
-			st[n].sno=n+1;
-			st[n].arrFlag = arrFlag;
-			for(int j=0; j<numParams; j++)
-				st[n].fType[j] = params[j];
-			st[n].numParams = numParams;
-			n++;
-		}
-		else
-		{
-			for(i=0;i<n;i++)
-			{
-				if(!strcmp(name,st[i].token))
-				{
-					st[i].tn++;
-					st[i].type[st[i].tn-1]=type;
-					break;
-				}
-			}
-		}
-
-		return;
-	}
 
 int getReturnType(char *a,int currScopeId)
 {
@@ -173,7 +183,7 @@ void updateVal(char *a,char *b,int sc)
 		if(!strcmp(a,st[i].token)   && max==st[i].scope)
 		{
 			float temp=atof(b);
-			for(k=0;k<st[i].tn;k++)
+			for(k=0;k<st[i].typenum;k++)
 			{
 				if(st[i].type[k]==258)
 					st[i].fvalue=(int)temp;
@@ -184,28 +194,16 @@ void updateVal(char *a,char *b,int sc)
 	}
 }
 
-void storevalue(char *a,char *b,int currScope)
-{
-	int i;
-	for(i=0;i<=n;i++)
-	{
-		if(!strcmp(a,st[i].token) && currScope==st[i].scope)
-		{
-			st[i].fvalue=atof(b);
-		}
-	}
-}
-
-void insert(char *name, int type, int addr, int arrFlag)
+void insertTable(char *name, int type, int addr, int arrFlag)
 	{
 		int i;
 		if(lookup(name))
 		{
 			strcpy(st[n].token,name);
-			st[n].tn=1;
-			st[n].type[st[n].tn-1]=type;
+			st[n].typenum=1;
+			st[n].type[st[n].typenum-1]=type;
 			st[n].addr=addr;
-			st[n].sno=n+1;
+			st[n].num=n+1;
 			st[n].arrFlag = arrFlag;
 			n++;
 		}
@@ -215,8 +213,8 @@ void insert(char *name, int type, int addr, int arrFlag)
 			{
 				if(!strcmp(name,st[i].token))
 				{
-					st[i].tn++;
-					st[i].type[st[i].tn-1]=type;
+					st[i].typenum++;
+					st[i].type[st[i].typenum-1]=type;
 					break;
 				}
 			}
@@ -225,131 +223,115 @@ void insert(char *name, int type, int addr, int arrFlag)
 		return;
 	}
 
-void insertDup(char *name, int type, int addr,int currScope)
+void printTable()
+{
+	int i,j;
+	printf("\nSymbol Table\n\n");
+	printf("\nSNo.\tToken\tAddress\tValue\tScope\tIsArray\tType\tParams\n");
+	for(i=0;i<n;i++)
+	{
+		if(st[i].type[0]==258 || st[i].type[0]==261|| st[i].type[0]==262|| st[i].type[0]==263)
+			printf("%d\t%s\t%d\t%d\t%d\t%d",st[i].num,st[i].token,st[i].addr,(int)st[i].fvalue,st[i].scope, st[i].arrFlag);
+		else
+			printf("%d\t%s\t%d\t%.1f\t%d\t%d",st[i].num,st[i].token,st[i].addr,st[i].fvalue,st[i].scope, st[i].arrFlag);
+		for(j=0;j<st[i].typenum;j++)
+		{
+			if(st[i].type[j]==258)
+				printf("\tINT");
+			else if(st[i].type[j]==259)
+				printf("\tFLOAT");
+			else if(st[i].type[j]==274)
+				printf("\tFUNCTION");
+			else if(st[i].type[j]==269)
+				printf("\tARRAY");
+			else if(st[i].type[j]==260)
+				printf("\tVOID");
+			else if(st[i].type[j]==261)
+		  		printf("\tUNSIGNED INT");
+			else if(st[i].type[j]==263)
+		    	printf("\tLONG INT");
+			else if(st[i].type[j]==262)
+		      	printf("\tSHORT INT");
+		}
+		for(int j=0;j<st[i].numParams;j++)
+		{
+			if(st[i].fType[j]==258)
+				printf("\tINT");
+			else if(st[i].fType[j]==259)
+				printf("\tFLOAT");
+			else if(st[i].fType[j]==274)
+				printf("\tFUNCTION");
+			else if(st[i].fType[j]==269)
+				printf("\tARRAY");
+			else if(st[i].fType[j]==260)
+				printf("\tVOID");
+			else if(st[i].fType[j]==261)
+		  		printf("\tUNSIGNED INT");
+			else if(st[i].fType[j]==263)
+		    	printf("\tLONG INT");
+			else if(st[i].fType[j]==262)
+		      	printf("\tSHORT INT");
+		}
+		printf("\n");
+	}
+	return;
+}
+
+void dummy_if1()
+{
+	label_index++;
+	strcpy(temp,"t");
+	strcat(temp,i_);
+	printf("%s = not %s\n",temp,tokenstack[top]);
+ 	printf("if %s goto L%d\n",temp,label_index);
+	i_[0]++;
+	label[++ltop]=label_index;
+}
+
+void dummy_if2()
+{
+	label_index++;
+	printf("goto L%d\n",label_index);
+	printf("L%d: \n",label[ltop--]);
+	label[++ltop]=label_index;
+}
+
+void dummy_if3()
+{
+	printf("L%d:\n",label[ltop--]);
+}
+
+void insertDuplicate(char *name, int type, int addr,int currScope)
 {
 	strcpy(st[n].token,name);
-	st[n].tn=1;
-	st[n].type[st[n].tn-1]=type;
+	st[n].typenum=1;
+	st[n].type[st[n].typenum-1]=type;
 	st[n].addr=addr;
-	st[n].sno=n+1;
+	st[n].num=n+1;
 	st[n].scope=currScope;
 	n++;
 	return;
 }
 
-	void print()
-	{
-		int i,j;
-		printf("\nSymbol Table\n\n");
-		printf("\nSNo.\tToken\tAddress\tValue\tScope\tIsArray\tType\tParams\n");
-		for(i=0;i<n;i++)
-		{
-			if(st[i].type[0]==258 || st[i].type[0]==261|| st[i].type[0]==262|| st[i].type[0]==263)
-				printf("%d\t%s\t%d\t%d\t%d\t%d",st[i].sno,st[i].token,st[i].addr,(int)st[i].fvalue,st[i].scope, st[i].arrFlag);
-			else
-				printf("%d\t%s\t%d\t%.1f\t%d\t%d",st[i].sno,st[i].token,st[i].addr,st[i].fvalue,st[i].scope, st[i].arrFlag);
-			for(j=0;j<st[i].tn;j++)
-			{
-				if(st[i].type[j]==258)
-					printf("\tINT");
-				else if(st[i].type[j]==259)
-					printf("\tFLOAT");
-				else if(st[i].type[j]==274)
-					printf("\tFUNCTION");
-				else if(st[i].type[j]==269)
-					printf("\tARRAY");
-				else if(st[i].type[j]==260)
-					printf("\tVOID");
-				else if(st[i].type[j]==261)
-			  		printf("\tUNSIGNED INT");
-				else if(st[i].type[j]==263)
-			    		printf("\tLONG INT");
-				else if(st[i].type[j]==262)
-			      		printf("\tSHORT INT");
-			}
-			for(int j=0;j<st[i].numParams;j++)
-			{
-				if(st[i].fType[j]==258)
-					printf("\tINT");
-				else if(st[i].fType[j]==259)
-					printf("\tFLOAT");
-				else if(st[i].fType[j]==274)
-					printf("\tFUNCTION");
-				else if(st[i].fType[j]==269)
-					printf("\tARRAY");
-				else if(st[i].fType[j]==260)
-					printf("\tVOID");
-				else if(st[i].fType[j]==261)
-			  		printf("\tUNSIGNED INT");
-				else if(st[i].fType[j]==263)
-			    		printf("\tLONG INT");
-				else if(st[i].fType[j]==262)
-			      		printf("\tSHORT INT");
-			}
-			printf("\n");
-		}
-		return;
-	}
-
-void blockBegin()
+void dummy_w1()
 {
-	stack[index1]=i;
-	i++;
-	index1++;
-	return;
+	label_index++;
+	label[++ltop]=label_index;
+	printf("L%d:\n",label_index);
 }
 
-void blockEnd()
+void dummy_w2()
 {
-	index1--;
-	end[stack[index1]]=1;
-	stack[index1]=0;
-	return;
-}
-
-void if1()
-{
-	lnum++;
-	strcpy(temp,"t");
-	strcat(temp,i_);
-	printf("%s = not %s\n",temp,tokenstack[top]);
- 	printf("if %s goto L%d\n",temp,lnum);
-	i_[0]++;
-	label[++ltop]=lnum;
-}
-
-void if2()
-{
-	lnum++;
-	printf("goto L%d\n",lnum);
-	printf("L%d: \n",label[ltop--]);
-	label[++ltop]=lnum;
-}
-
-void if3()
-{
-	printf("L%d:\n",label[ltop--]);
-}
-
-void w1()
-{
-	lnum++;
-	label[++ltop]=lnum;
-	printf("L%d:\n",lnum);
-}
-
-void w2()
-{
-	lnum++;
+	label_index++;
 	strcpy(temp,"t");
 	strcat(temp,i_);
 	printf("%s = not %s\n",temp,tokenstack[top--]);
- 	printf("if %s goto L%d\n",temp,lnum);
+ 	printf("if %s goto L%d\n",temp,label_index);
 	i_[0]++;
-	label[++ltop]=lnum;
+	label[++ltop]=label_index;
 }
 
-void w3()
+void dummy_w3()
 {
 	int y=label[ltop--];
 	printf("goto L%d\n",label[ltop--]);
@@ -361,7 +343,7 @@ void push(char *a)
 	strcpy(tokenstack[++top],a);
 }
 
-void array1()
+void dummy_arr1()
 {
 	strcpy(temp,"t");
 	strcat(temp,i_);
@@ -386,14 +368,17 @@ void gencode()
 	i_[0]++;
 }
 
-void gencodeUnaryMinus()
+
+int retNumParams(char* a)
 {
-	strcpy(temp,"t");
-	strcat(temp,i_);
-	printf("%s = -%s\n",temp,tokenstack[top]);
-	top--;
-	strcpy(tokenstack[top],temp);
-	i_[0]++;
+	for(i=0;i<=n;i++)
+	{
+		if(!strcmp(a,st[i].token))
+		{
+			return st[i].numParams;
+		}
+	}
+	return 0;
 }
 
 void gencodeAssignment()
@@ -402,125 +387,42 @@ void gencodeAssignment()
 	top-=2;
 }
 
-	int retNumParams(char* a)
-	{
-		for(i=0;i<=n;i++)
-		{
-			if(!strcmp(a,st[i].token))
-			{
-				return st[i].numParams;
-			}
-		}
-		return 0;
-	}
-
 %}
-
-%token<ival> INT FLOAT VOID
-%token<str> ID NUM REAL LE GE EQ NEQ AND OR
-%token WHILE IF RETURN PREPROC STRING PRINT FUNCTION DO ARRAY ELSE STRUCT STRUCT_VAR FOR
-%left LE GE EQ NEQ AND OR '<' '>'
-%right '='
-%right UMINUS
-%left '+' '-'
-%left '*' '/'
-%type<str> assignment secondary_assignment consttype '=' '+' '-' '*' '/' E T F
-%type<ival> Type
-%union {
-		int ival;
-		char *str;
-	}
 %%
 
-start
- 	: Function start
-	| PREPROC start
-	| Declaration start
+block_statement
+ 	: '{' statement_list '}'
+	;
+
+statement_list
+ 	: statement_list statement
 	|
 	;
 
-	Function
-		: Type ID  '(' ')'  { printf("\nfunction begin %s:\n", $2); } CompoundStmt {
-
-		if ($1!=returntype_func(returnCount))
-		{
-			printf("\nError : Type mismatch : Line %d\n",printline());
-		}
-
-		if (!(strcmp($2,"printf") && strcmp($2,"scanf") && strcmp($2,"getc") && strcmp($2,"gets") && strcmp($2,"getchar") && strcmp	($2,"puts") && strcmp($2,"putchar") && strcmp($2,"clearerr") && strcmp($2,"getw") && strcmp($2,"putw") && strcmp($2,"putc") && strcmp($2,"rewind") && strcmp($2,"sprint") && strcmp($2,"sscanf") && strcmp($2,"remove") && strcmp($2,"fflush")))
-			printf("Error : Type mismatch in redeclaration of %s : Line %d\n",$2,printline());
-		else
-		{
-			insert($2,FUNCTION,g_addr, 0);
-			insert($2,$1,g_addr, 0);
-			g_addr+=4;
-		}
-		printf("function end\n\n");
-		}
-		| Type ID '(' param_list ')'   { printf("\nfunction begin %s:\n", $2); } CompoundStmt {
-
-		if ($1!=returntype_func(returnCount))
-		{
-			printf("\nError : Type mismatch : Line %d %d %d\n",printline(), $1, returntype_func(returnCount));
-		}
-
-		if (!(strcmp($2,"printf") && strcmp($2,"scanf") && strcmp($2,"getc") && strcmp($2,"gets") && strcmp($2,"getchar") && strcmp	($2,"puts") && strcmp($2,"putchar") && strcmp($2,"clearerr") && strcmp($2,"getw") && strcmp($2,"putw") && strcmp($2,"putc") && strcmp($2,"rewind") && strcmp($2,"sprint") && strcmp($2,"sscanf") && strcmp($2,"remove") && strcmp($2,"fflush")))
-			printf("Error : Type mismatch in redeclaration of %s : Line %d\n",$2,printline());
-		else
-		{
-			insertFunc($2,FUNCTION,g_addr, 0, fname, nP);
-			insert($2,$1,g_addr, 0);
-			g_addr+=4;
-		}
-		printf("function end\n\n");
-		};
-
-	param_list: Type ID
-	{
-	int scope=stack[index1-1];
-	insert($2,$1,g_addr, 0);
-	insertscope($2,scope+1);
-	g_addr+=4; nP = 1; fname[nP-1] = $1; }
-	| param_list ',' Type ID { int scope=stack[index1-1];
-	insert($4,$3,g_addr, 0);
-	insertscope($4,scope+1);
-	g_addr+=4;
-	nP++; fname[nP-1] = $3; };
-
-Type
- 	: INT
-	| FLOAT
-	| VOID
-	;
-
-CompoundStmt
- 	: '{' StmtList '}'
-	;
-
-StmtList
- 	: StmtList stmt
-	|
-	;
-
-stmt
- 	: Declaration
-	| if
+statement
+ 	: declaration_statement
+	| if_statement
+	| block_statement
+	| function_call
 	| ID '(' ')' ';'
-	| while
-	| RETURN consttype ';' {
-					if(!(strspn($2,"0123456789")==strlen($2)))
-						storereturn(returnCount,FLOAT);
-					else
-						storereturn(returnCount,INT); returnCount++;
-					}
-	| RETURN ';' {storereturn(returnCount,VOID); returnCount++;}
+	| while_statement
+	| return_statement
 	| ';'
 	| PRINT '(' STRING ')' ';'
-	| CompoundStmt
-	| function_call
 	;
 
-	function_call: ID '(' call_list ')' ';' {
+return_statement
+	: RETURN constant ';' {
+					if(!(strspn($2,"0123456789")==strlen($2)))
+						pushReturnType(returnCount,FLOAT);
+					else
+						pushReturnType(returnCount,INT); returnCount++;
+					}
+	| RETURN ';' {pushReturnType(returnCount,VOID); returnCount++;}
+	;
+
+function_call
+	: ID '(' call_list ')' ';' {
 		if(lookup($1))
 			printf("\nError: Undeclared function %s : Line %d\n", $1, printline());
 		else
@@ -548,70 +450,164 @@ stmt
 		printf("call %s, %d\n", $1, 0);
 	};
 
-	call_list : ID { printf("Push Param %s\n", $1); temptype = returntype($1, stack[index1-1]); it = 0; fTypes2[it] = temptype; }
-		| consttype {  printf("Push Param %s\n", $1); temptype = temp; it = 0; fTypes2[it] = temptype; }
-		| call_list ',' ID {  printf("Push Param %s\n", $3); it++; temptype = returntype($3, stack[index1-1]); fTypes2[it] = temptype;}
-		| call_list ',' consttype {  printf("Push Param %s\n", $3); temptype = temp; it++; fTypes2[it] = temptype;}
-		;
+call_list
+	: ID { printf("Push Param %s\n", $1); temptype = returntype($1, stack[stackindex-1]); it = 0; fTypes2[it] = temptype; }
+	| constant {  printf("Push Param %s\n", $1); temptype = temp; it = 0; fTypes2[it] = temptype; }
+	| call_list ',' ID {  printf("Push Param %s\n", $3); it++; temptype = returntype($3, stack[stackindex-1]); fTypes2[it] = temptype;}
+	| call_list ',' constant {  printf("Push Param %s\n", $3); temptype = temp; it++; fTypes2[it] = temptype;}
+	;
 
-if
- 	: 	 IF '(' E ')' {if1();} CompoundStmt {if2();} else
+if_statement
+ 	: 	 IF '(' expression ')' {dummy_if1();} block_statement {dummy_if2();} else
 	;
 
 else
- 	: ELSE CompoundStmt {if3();}
+ 	: ELSE block_statement {dummy_if3();}
 	|
 	;
 
-while
- 	: WHILE {w1();}'(' E ')' {w2();} CompoundStmt {w3();}
+start
+ 	: function_dec start
+	| declaration_statement start
+	|
+	;
+
+function_dec
+	: Type ID  '(' ')'  { printf("\nfunction begin %s:\n", $2); } block_statement {
+
+	if ($1!=returntype_func(returnCount))
+	{
+		printf("\nError : Type mismatch : Line %d\n",printline());
+	}
+
+	if (!(strcmp($2,"printf") && strcmp($2,"scanf") && strcmp($2,"getc") && strcmp($2,"gets") && strcmp($2,"getchar") && strcmp	($2,"puts") && strcmp($2,"putchar") && strcmp($2,"clearerr") && strcmp($2,"getw") && strcmp($2,"putw") && strcmp($2,"putc") && strcmp($2,"rewind") && strcmp($2,"sprint") && strcmp($2,"sscanf") && strcmp($2,"remove") && strcmp($2,"fflush")))
+		printf("Error : Type mismatch in redeclaration of %s : Line %d\n",$2,printline());
+	else
+	{
+		insertTable($2,FUNCTION,mem_address, 0);
+		insertTable($2,$1,mem_address, 0);
+		mem_address+=4;
+	}
+	printf("function end\n\n");
+	}
+	| Type ID '(' param_list ')'   { printf("\nfunction begin %s:\n", $2); } block_statement {
+
+	if ($1!=returntype_func(returnCount))
+	{
+		printf("\nError : Type mismatch : Line %d %d %d\n",printline(), $1, returntype_func(returnCount));
+	}
+
+	if (!(strcmp($2,"printf") && strcmp($2,"scanf") && strcmp($2,"getc") && strcmp($2,"gets") && strcmp($2,"getchar") && strcmp	($2,"puts") && strcmp($2,"putchar") && strcmp($2,"clearerr") && strcmp($2,"getw") && strcmp($2,"putw") && strcmp($2,"putc") && strcmp($2,"rewind") && strcmp($2,"sprint") && strcmp($2,"sscanf") && strcmp($2,"remove") && strcmp($2,"fflush")))
+		printf("Error : Type mismatch in redeclaration of %s : Line %d\n",$2,printline());
+	else
+	{
+		insertFunc($2,FUNCTION,mem_address, 0, fname, nP);
+		insertTable($2,$1,mem_address, 0);
+		mem_address+=4;
+	}
+	printf("function end\n\n");
+	};
+
+param_list
+	: Type ID
+	{
+		int scope=stack[stackindex-1];
+		insertTable($2,$1,mem_address, 0);
+		addScope($2,scope+1);
+		mem_address+=4; nP = 1; fname[nP-1] = $1;
+	}
+	| param_list ',' Type ID
+	{   int scope=stack[stackindex-1];
+		insertTable($4,$3,mem_address, 0);
+		addScope($4,scope+1);
+		mem_address+=4;
+		nP++; fname[nP-1] = $3;
+	};
+
+Type
+ 	: INT
+	| FLOAT
+	| VOID
+	;
+
+expression
+   : expression '+'{strcpy(tokenstack[++top],"+");} additive_exp{gencode();}
+   | expression '-'{strcpy(tokenstack[++top],"-");} additive_exp{gencode();}
+   | additive_exp
+   | ID {push($1);} '<' {strcpy(tokenstack[++top],"<");} expression {gencode();}
+   | ID {push($1);} '>' {strcpy(tokenstack[++top],">");} expression {gencode();}
+   | ID {push($1);} '=' {strcpy(tokenstack[++top],"||");} expression {gencodeAssignment();}
+   | array {dummy_arr1();}
+   ;
+
+additive_exp
+   : additive_exp '*'{strcpy(tokenstack[++top],"*");} multiplicative_exp{gencode();}
+   | additive_exp '/'{strcpy(tokenstack[++top],"/");} multiplicative_exp{gencode();}
+   | multiplicative_exp
+   ;
+
+multiplicative_exp
+ 	 : '(' expression ')' {$$=$2;}
+   | ID {push($1);fl=1;}
+   | constant {push($1);}
+   ;
+
+
+while_statement
+ 	: WHILE {dummy_w1();}'(' expression')' {dummy_w2();} block_statement {dummy_w3();}
 	;
 
 assignment
- 	: ID '=' consttype
+ 	: ID '=' constant
 	| ID '+' assignment
 	| ID ',' assignment
-	| consttype ',' assignment
+	| constant ',' assignment
 	| ID
-	| consttype
+	| constant
 	;
 
 secondary_assignment
- 	: ID {push($1);} '=' {strcpy(tokenstack[++top],"=");} E {gencodeAssignment();}
+ 	: ID {push($1);} '=' {strcpy(tokenstack[++top],"=");} expression{gencodeAssignment();}
 		{
-		int currScopeId=returnscope($1,stack[index1-1]);
+		int currScopeId=getScope($1,stack[stackindex-1]);
 		int type=getReturnType($1,currScopeId);
 		if((!(strspn($5,"0123456789")==strlen($5))) && type==258 && fl==0)
 			printf("\nError : Type Mismatch : Line %d\n",printline());
 		if(!lookup($1))
 		{
-			int currscope=stack[index1-1];
-			int scope=returnscope($1,currscope);
-			if((scope<=currscope && end[scope]==0) && !(scope==0))
-			{
-				updateVal($1,$5,currscope);
-			}
+		int currscope=stack[stackindex-1];
+		int scope=getScope($1,currscope);
+		if((scope<=currscope && end[scope]==0) && !(scope==0))
+		{
+			updateVal($1,$5,currscope);
+		}
 		}
 		}
 	| ID ',' secondary_assignment    {
 					if(lookup($1))
 						printf("\nUndeclared Variable %s : Line %d\n",$1,printline());
 				}
-	| consttype ',' secondary_assignment
+	| constant ',' secondary_assignment
 	| ID  {
 		if(lookup($1))
 			printf("\nUndeclared Variable %s : Line %d\n",$1,printline());
 		}
-	| consttype
+	| constant
 	;
 
-consttype
+constant
  	: NUM
 	| REAL
 	;
 
-Declaration
-	: Type ID {push($2);} '=' {strcpy(tokenstack[++top],"=");} E {gencodeAssignment();} ';'
+declaration_statement
+	: Type ID '[' assignment ']' ';' {
+						insertTable($2,ARRAY,mem_address, 1);
+						insertTable($2,$1,mem_address, 0);
+						mem_address+=4;
+					}
+	| ID '[' secondary_assignment ']' ';'
+	| Type ID {push($2);} '=' {strcpy(tokenstack[++top],"=");} expression{gencodeAssignment();} ';'
 		{
 			if( (!(strspn($6,"0123456789")==strlen($6))) && $1==258 && (fl==0))
 			{
@@ -620,79 +616,43 @@ Declaration
 			}
 			if(!lookup($2))
 			{
-				int currscope=stack[index1-1];
-				int previous_scope=returnscope($2,currscope);
+				int currscope=stack[stackindex-1];
+				int previous_scope=getScope($2,currscope);
 				if(currscope==previous_scope)
 					printf("\nError : Redeclaration of %s : Line %d\n",$2,printline());
 				else
 				{
-					insertDup($2,$1,g_addr,currscope);
-					updateVal($2,$6,stack[index1-1]);
-					int sg=returnscope($2,stack[index1-1]);
-					g_addr+=4;
+					insertDuplicate($2,$1,mem_address,currscope);
+					updateVal($2,$6,stack[stackindex-1]);
+					int sg=getScope($2,stack[stackindex-1]);
+					mem_address+=4;
 				}
 			}
 			else
 			{
-				int scope=stack[index1-1];
-				insert($2,$1,g_addr, 0);
-				insertscope($2,scope);
-				updateVal($2,$6,stack[index1-1]);
-				g_addr+=4;
+				int scope=stack[stackindex-1];
+				insertTable($2,$1,mem_address, 0);
+				addScope($2,scope);
+				updateVal($2,$6,stack[stackindex-1]);
+				mem_address+=4;
 			}
 		}
 	| secondary_assignment ';'  {
 				if(!lookup($1))
 				{
-					int currscope=stack[index1-1];
-					int scope=returnscope($1,currscope);
+					int currscope=stack[stackindex-1];
+					int scope=getScope($1,currscope);
 					if(!(scope<=currscope && end[scope]==0) || scope==0)
 						printf("\nError : Variable %s out of scope : Line %d\n",$1,printline());
 				}
 				else
 					printf("\nError : Undeclared Variable %s : Line %d\n",$1,printline());
 				}
-	| Type ID '[' assignment ']' ';' {
-						insert($2,ARRAY,g_addr, 1);
-						insert($2,$1,g_addr, 0);
-						g_addr+=4;
-					}
-	| ID '[' secondary_assignment ']' ';'
-	| error
 	;
 
 array
- 	: ID {push($1);}'[' E ']'
+ 	: ID {push($1);}'[' expression']'
 	;
-
-E
- 	 : E '+'{strcpy(tokenstack[++top],"+");} T{gencode();}
-   | E '-'{strcpy(tokenstack[++top],"-");} T{gencode();}
-   | T
-   | ID {push($1);} LE {strcpy(tokenstack[++top],"<=");} E {gencode();}
-   | ID {push($1);} GE {strcpy(tokenstack[++top],">=");} E {gencode();}
-   | ID {push($1);} EQ {strcpy(tokenstack[++top],"==");} E {gencode();}
-   | ID {push($1);} NEQ {strcpy(tokenstack[++top],"!=");} E {gencode();}
-   | ID {push($1);} AND {strcpy(tokenstack[++top],"&&");} E {gencode();}
-   | ID {push($1);} OR {strcpy(tokenstack[++top],"||");} E {gencode();}
-   | ID {push($1);} '<' {strcpy(tokenstack[++top],"<");} E {gencode();}
-   | ID {push($1);} '>' {strcpy(tokenstack[++top],">");} E {gencode();}
-   | ID {push($1);} '=' {strcpy(tokenstack[++top],"||");} E {gencodeAssignment();}
-   | array {array1();}
-   ;
-
-T
- 	 : T '*'{strcpy(tokenstack[++top],"*");} F{gencode();}
-   | T '/'{strcpy(tokenstack[++top],"/");} F{gencode();}
-   | F
-   ;
-
-F
- 	 : '(' E ')' {$$=$2;}
-   | '-'{strcpy(tokenstack[++top],"-");} F{gencodeUnaryMinus();} %prec UMINUS
-   | ID {push($1);fl=1;}
-   | consttype {push($1);}
-   ;
 %%
 
 #include "lex.yy.c"
@@ -704,7 +664,7 @@ int main(int argc, char *argv[])
 	if(!yyparse())
 	{
 		printf("Parsing done\n");
-		print();
+		printTable();
 	}
 	else
 	{

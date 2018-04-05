@@ -2,15 +2,15 @@
 
 int main()
 {
-	int a=5;
-	int b=6;
-	if(a<=7)
+	int x=1;
+	int y=2;
+	if(x==3)
 	{
-		b=b-4;
+		y=y-2;
 	}
-	else
-	{
-		b=2;
-	}
+		else
+		{
+			y=0;
+		}
 	return 0;
 }
