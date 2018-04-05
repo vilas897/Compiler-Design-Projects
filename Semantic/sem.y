@@ -10,6 +10,13 @@
 	int arr[10];
 	int gl1,gl2,curr_type=0,c=0,b;
 	int type=258;
+	int fname[100];
+	int nP;
+	int fTypes[100];
+	int fTypes2[100];
+	int temptype;
+	int it;
+	int temp;
 
 	struct sym
 	{
@@ -21,6 +28,8 @@
 		float fvalue;
 		int scope;
 		int arrFlag;
+		int fType[100]; 
+		int numParams; 
 	}st[100];
 
 	int n=0,arr[10];
@@ -64,6 +73,30 @@
 		return 0;
 	}
 
+	int retNumParams(char* a)
+	{
+		for(i=0;i<=n;i++)
+		{
+			if(!strcmp(a,st[i].token))
+			{
+				return st[i].numParams;
+			}
+		}
+		return 0;
+	}
+
+	void getParams(char* a)
+	{
+		for(i=0;i<=n;i++)
+		{
+			if(!strcmp(a,st[i].token))
+			{
+				for(int j=0; j<st[i].numParams; j++)
+					fTypes[j] = st[i].fType[j]; 
+			}
+		}
+		return 0;
+	}
 	int returnscope(char *a,int cs)
 	{
 		//printf("\nString is: %s", a);
@@ -157,7 +190,37 @@
 
 		return;
 	}
+	void insertFunc(char *name, int type, int addr, int arrFlag, int params[100], int numParams)
+	{
+		int i;
+		if(lookup(name))
+		{
+			strcpy(st[n].token,name);
+			st[n].tn=1;
+			st[n].type[st[n].tn-1]=type;
+			st[n].addr=addr;
+			st[n].sno=n+1;
+			st[n].arrFlag = arrFlag;
+			for(int j=0; j<numParams; j++)
+				st[n].fType[j] = params[j];
+			st[n].numParams = numParams;
+			n++;
+		}
+		else
+		{
+			for(i=0;i<n;i++)
+			{
+				if(!strcmp(name,st[i].token))
+				{
+					st[i].tn++;
+					st[i].type[st[i].tn-1]=type;
+					break;
+				}
+			}
+		}
 
+		return;
+	}
 	void insert_dup(char *name, int type, int addr,int s_c, int arrFlag)
 	{
 		strcpy(st[n].token,name);
@@ -175,7 +238,7 @@
 	{
 		int i,j;
 		printf("\nSymbol Table\n\n");
-		printf("\nSNo.\tToken\tAddress\tValue\tScope\tIsArray\tType\n");
+		printf("\nSNo.\tToken\tAddress\tValue\tScope\tIsArray\tType\t                 Params\n");
 		for(i=0;i<n;i++)
 		{
 			if(st[i].type[0]==258 || st[i].type[0]==261|| st[i].type[0]==262|| st[i].type[0]==263)
@@ -194,12 +257,31 @@
 					printf("\tARRAY");
 				else if(st[i].type[j]==260)
 					printf("\tVOID");
-        else if(st[i].type[j]==261)
-  				printf("\tUNSIGNED INT");
-        else if(st[i].type[j]==263)
-    			printf("\tLONG INT");
-        else if(st[i].type[j]==262)
-      		printf("\tSHORT INT");
+				else if(st[i].type[j]==261)
+			  		printf("\tUNSIGNED INT");
+				else if(st[i].type[j]==263)
+			    		printf("\tLONG INT");
+				else if(st[i].type[j]==262)
+			      		printf("\tSHORT INT");
+			}
+			for(int j=0;j<st[i].numParams;j++)
+			{
+				if(st[i].fType[j]==258)
+					printf("\tINT");
+				else if(st[i].fType[j]==259)
+					printf("\tFLOAT");
+				else if(st[i].fType[j]==274)
+					printf("\tFUNCTION");
+				else if(st[i].fType[j]==269)
+					printf("\tARRAY");
+				else if(st[i].fType[j]==260)
+					printf("\tVOID");
+				else if(st[i].fType[j]==261)
+			  		printf("\tUNSIGNED INT");
+				else if(st[i].fType[j]==263)
+			    		printf("\tLONG INT");
+				else if(st[i].fType[j]==262)
+			      		printf("\tSHORT INT");
 			}
 			printf("\n");
 		}
@@ -229,7 +311,8 @@ start : Function start
 	;
 
 Function
-	: Type ID '('')' compound_stmt {
+	: Type ID '(' ')' compound_stmt {
+	 
 	if ($1!=returntype_func(curr_type))
 	{
 		printf("\nError : Type mismatch : Line %d\n",printline());
@@ -243,7 +326,27 @@ Function
 		insert($2,$1,g_addr, 0);
 		g_addr+=4;
 	}
+	}
+	| Type ID '(' param_list ')' compound_stmt {
+	
+
+	if ($1!=returntype_func(curr_type))
+	{
+		printf("\nError : Type mismatch : Line %d\n",printline());
+	}
+
+	if (!(strcmp($2,"printf") && strcmp($2,"scanf") && strcmp($2,"getc") && strcmp($2,"gets") && strcmp($2,"getchar") && strcmp	($2,"puts") && strcmp($2,"putchar") && strcmp($2,"clearerr") && strcmp($2,"getw") && strcmp($2,"putw") && strcmp($2,"putc") && strcmp($2,"rewind") && strcmp($2,"sprint") && strcmp($2,"sscanf") && strcmp($2,"remove") && strcmp($2,"fflush")))
+		printf("Error : Type mismatch in redeclaration of %s : Line %d\n",$2,printline());
+	else
+	{
+		insertFunc($2,FUNCTION,g_addr, 0, fname, nP);
+		insert($2,$1,g_addr, 0);
+		g_addr+=4;
+	}
 	};
+
+param_list: Type ID { nP = 1; fname[nP-1] = $1; }
+	| param_list ',' Type ID { nP++; fname[nP-1] = $3; }; 
 
 Type
 	: INT
@@ -268,6 +371,7 @@ stmt
 	: Declaration
 	| if_stmt
 	| while_stmt
+	| function_call
 	| RETURN consttype ';' {
 					if(!(strspn($2,"0123456789")==strlen($2)))
 						storereturn(curr_type,FLOAT);
@@ -278,6 +382,39 @@ stmt
 	| ';'
 	| PRINT '(' STRING ',' exp ')' ';'
 	| compound_stmt
+	;
+
+function_call: ID '(' call_list ')' ';' {
+	if(lookup($1))
+		printf("\nError: Undeclared function %s : Line %d\n", $1, printline());
+	else
+	{
+		if(retNumParams($1) == 0)
+			printf("\nError : Parameter list does not match signature : Line %d\n", printline()); 
+		getParams($1);				
+	}
+
+	for(int j=0; j<retNumParams($1); j++)
+	{
+		if(fTypes[j] != fTypes2[j])
+			printf("\nError : Parameter list does not match signature : Line %d\n", printline());
+	}
+	
+}  
+| ID '(' ')' ';' {
+	if(lookup($1))
+		printf("\nError: Undeclared function %s : Line %d\n", $1, printline());
+	else
+	{
+		if(retNumParams($1) != 0)
+			printf("\nError : Parameter list does not match signature : Line %d\n", printline()); 
+	}
+};
+
+call_list : ID { temptype = returntype($1, stack[index1-1]); it = 0; fTypes2[it] = temptype; }
+	| consttype { temptype = temp; it = 0; fTypes2[it] = temptype; }
+	| call_list ',' ID { it++; temptype = returntype($3, stack[index1-1]); fTypes2[it] = temptype;}
+	| call_list ',' consttype { temptype = temp; it++; fTypes2[it] = temptype;}
 	;
 
 if_stmt
@@ -425,8 +562,8 @@ exp : ID {
 	| '(' exp ')'
 	;
 
-consttype : INT_CONST
-	| FLOAT_CONST
+consttype : INT_CONST { temp = 258;}
+	| FLOAT_CONST { temp = 259;}
 	;
 
 Declaration
