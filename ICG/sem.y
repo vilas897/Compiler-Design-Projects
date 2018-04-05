@@ -608,46 +608,38 @@ declaration_statement
 					}
 	| ID '[' secondary_assignment ']' ';'
 	| Type ID {push($2);} '=' {strcpy(tokenstack[++top],"=");} expression{gencodeAssignment();} ';'
-		{
-			if( (!(strspn($6,"0123456789")==strlen($6))) && $1==258 && (fl==0))
-			{
-				printf("\nError : Type Mismatch : Line %d\n",printline());
-				fl=1;
-			}
+		{ if( (!(strspn($6,"0123456789")==strlen($6))) && $1==258 && (fl==0))
+			{   printf("\nError : Type Mismatch : Line %d\n",printline());
+				fl=1; }
 			if(!lookup($2))
-			{
-				int currscope=stack[stackindex-1];
+			{	int currscope=stack[stackindex-1];
 				int previous_scope=getScope($2,currscope);
 				if(currscope==previous_scope)
-					printf("\nError : Redeclaration of %s : Line %d\n",$2,printline());
+				printf("\nError : Redeclaration of %s : Line %d\n",$2,printline());
 				else
-				{
-					insertDuplicate($2,$1,mem_address,currscope);
-					updateVal($2,$6,stack[stackindex-1]);
-					int sg=getScope($2,stack[stackindex-1]);
-					mem_address+=4;
-				}
-			}
-			else
-			{
-				int scope=stack[stackindex-1];
-				insertTable($2,$1,mem_address, 0);
-				addScope($2,scope);
+				{ insertDuplicate($2,$1,mem_address,currscope);
 				updateVal($2,$6,stack[stackindex-1]);
-				mem_address+=4;
-			}
+				int sg=getScope($2,stack[stackindex-1]);
+				mem_address+=4;}
+				}
+		else
+		{ int scope=stack[stackindex-1];
+		insertTable($2,$1,mem_address, 0);
+		addScope($2,scope);
+		updateVal($2,$6,stack[stackindex-1]);
+		mem_address+=4;
+		}
 		}
 	| secondary_assignment ';'  {
-				if(!lookup($1))
-				{
-					int currscope=stack[stackindex-1];
-					int scope=getScope($1,currscope);
-					if(!(scope<=currscope && end[scope]==0) || scope==0)
-						printf("\nError : Variable %s out of scope : Line %d\n",$1,printline());
-				}
-				else
-					printf("\nError : Undeclared Variable %s : Line %d\n",$1,printline());
-				}
+		if(!lookup($1))
+		{	int currscope=stack[stackindex-1];
+			int scope=getScope($1,currscope);
+			if(!(scope<=currscope && end[scope]==0) || scope==0)
+				printf("\nError : Variable %s out of scope : Line %d\n",$1,printline());
+		}
+		else
+		printf("\nError : Undeclared Variable %s : Line %d\n",$1,printline());
+		}
 	;
 
 array
