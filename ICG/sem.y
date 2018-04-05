@@ -8,7 +8,7 @@
 %right '='
 %left '+' '-'
 %left '*' '/'
-%type<str> ID NUM REAL LE GE EQ NEQ AND OR assignment secondary_assignment constant '=' '+' '-' '*' '/' expression additive_exp multiplicative_exp
+%type<str> IDENTIFIER NUM REAL LE GE EQ NEQ AND OR assignment secondary_assignment constant '=' '+' '-' '*' '/' expression additive_exp multiplicative_exp
 %type<ival> INT FLOAT VOID Type
 
 int mem_address = 100,i=1,type=258,fname[100], nP, fTypes[100], fTypes2[100],temptype,it,stack[100],stackindex=0,end[100],returnArr[10],returnCount,c,b,fl,top=0,label[20],label_index=0,ltop=0,n=0,returnArr[10],iter=0;;
@@ -404,7 +404,7 @@ statement
 	| if_statement
 	| block_statement
 	| function_call
-	| ID '(' ')' ';'
+	| IDENTIFIER '(' ')' ';'
 	| while_statement
 	| return_statement
 	| ';'
@@ -422,7 +422,7 @@ return_statement
 	;
 
 function_call
-	: ID '(' call_list ')' ';' {
+	: IDENTIFIER '(' call_list ')' ';' {
 		if(lookup($1))
 			printf("\nError: Undeclared function %s : Line %d\n", $1, printline());
 		else
@@ -439,7 +439,7 @@ function_call
 		}
 		printf("call %s, %d\n", $1, it);
 	}
-	| ID '(' ')' ';' {
+	| IDENTIFIER '(' ')' ';' {
 		if(lookup($1))
 			printf("\nError: Undeclared function %s : Line %d\n", $1, printline());
 		else
@@ -451,9 +451,9 @@ function_call
 	};
 
 call_list
-	: ID { printf("Push Param %s\n", $1); temptype = returntype($1, stack[stackindex-1]); it = 0; fTypes2[it] = temptype; }
+	: IDENTIFIER { printf("Push Param %s\n", $1); temptype = returntype($1, stack[stackindex-1]); it = 0; fTypes2[it] = temptype; }
 	| constant {  printf("Push Param %s\n", $1); temptype = temp; it = 0; fTypes2[it] = temptype; }
-	| call_list ',' ID {  printf("Push Param %s\n", $3); it++; temptype = returntype($3, stack[stackindex-1]); fTypes2[it] = temptype;}
+	| call_list ',' IDENTIFIER {  printf("Push Param %s\n", $3); it++; temptype = returntype($3, stack[stackindex-1]); fTypes2[it] = temptype;}
 	| call_list ',' constant {  printf("Push Param %s\n", $3); temptype = temp; it++; fTypes2[it] = temptype;}
 	;
 
@@ -473,7 +473,7 @@ start
 	;
 
 function_dec
-	: Type ID  '(' ')'  { printf("\nfunction begin %s:\n", $2); } block_statement {
+	: Type IDENTIFIER  '(' ')'  { printf("\nfunction begin %s:\n", $2); } block_statement {
 
 	if ($1!=returntype_func(returnCount))
 	{
@@ -490,7 +490,7 @@ function_dec
 	}
 	printf("function end\n\n");
 	}
-	| Type ID '(' param_list ')'   { printf("\nfunction begin %s:\n", $2); } block_statement {
+	| Type IDENTIFIER '(' param_list ')'   { printf("\nfunction begin %s:\n", $2); } block_statement {
 
 	if ($1!=returntype_func(returnCount))
 	{
@@ -509,14 +509,14 @@ function_dec
 	};
 
 param_list
-	: Type ID
+	: Type IDENTIFIER
 	{
 		int scope=stack[stackindex-1];
 		insertTable($2,$1,mem_address, 0);
 		addScope($2,scope+1);
 		mem_address+=4; nP = 1; fname[nP-1] = $1;
 	}
-	| param_list ',' Type ID
+	| param_list ',' Type IDENTIFIER
 	{   int scope=stack[stackindex-1];
 		insertTable($4,$3,mem_address, 0);
 		addScope($4,scope+1);
@@ -534,9 +534,9 @@ expression
    : expression '+'{strcpy(tokenstack[++top],"+");} additive_exp{gencode();}
    | expression '-'{strcpy(tokenstack[++top],"-");} additive_exp{gencode();}
    | additive_exp
-   | ID {push($1);} '<' {strcpy(tokenstack[++top],"<");} expression {gencode();}
-   | ID {push($1);} '>' {strcpy(tokenstack[++top],">");} expression {gencode();}
-   | ID {push($1);} '=' {strcpy(tokenstack[++top],"||");} expression {gencodeAssignment();}
+   | IDENTIFIER {push($1);} '<' {strcpy(tokenstack[++top],"<");} expression {gencode();}
+   | IDENTIFIER {push($1);} '>' {strcpy(tokenstack[++top],">");} expression {gencode();}
+   | IDENTIFIER {push($1);} '=' {strcpy(tokenstack[++top],"||");} expression {gencodeAssignment();}
    | array {dummy_arr1();}
    ;
 
@@ -548,7 +548,7 @@ additive_exp
 
 multiplicative_exp
  	 : '(' expression ')' {$$=$2;}
-   | ID {push($1);fl=1;}
+   | IDENTIFIER {push($1);fl=1;}
    | constant {push($1);}
    ;
 
@@ -558,16 +558,16 @@ while_statement
 	;
 
 assignment
- 	: ID '=' constant
-	| ID '+' assignment
-	| ID ',' assignment
+ 	: IDENTIFIER '=' constant
+	| IDENTIFIER '+' assignment
+	| IDENTIFIER ',' assignment
 	| constant ',' assignment
-	| ID
+	| IDENTIFIER
 	| constant
 	;
 
 secondary_assignment
- 	: ID {push($1);} '=' {strcpy(tokenstack[++top],"=");} expression{gencodeAssignment();}
+ 	: IDENTIFIER {push($1);} '=' {strcpy(tokenstack[++top],"=");} expression{gencodeAssignment();}
 		{
 		int currScopeId=getScope($1,stack[stackindex-1]);
 		int type=getReturnType($1,currScopeId);
@@ -583,12 +583,12 @@ secondary_assignment
 		}
 		}
 		}
-	| ID ',' secondary_assignment    {
+	| IDENTIFIER ',' secondary_assignment    {
 					if(lookup($1))
 						printf("\nUndeclared Variable %s : Line %d\n",$1,printline());
 				}
 	| constant ',' secondary_assignment
-	| ID  {
+	| IDENTIFIER  {
 		if(lookup($1))
 			printf("\nUndeclared Variable %s : Line %d\n",$1,printline());
 		}
@@ -601,13 +601,13 @@ constant
 	;
 
 declaration_statement
-	: Type ID '[' assignment ']' ';' {
+	: Type IDENTIFIER '[' assignment ']' ';' {
 						insertTable($2,ARRAY,mem_address, 1);
 						insertTable($2,$1,mem_address, 0);
 						mem_address+=4;
 					}
-	| ID '[' secondary_assignment ']' ';'
-	| Type ID {push($2);} '=' {strcpy(tokenstack[++top],"=");} expression{gencodeAssignment();} ';'
+	| IDENTIFIER '[' secondary_assignment ']' ';'
+	| Type IDENTIFIER {push($2);} '=' {strcpy(tokenstack[++top],"=");} expression{gencodeAssignment();} ';'
 		{ if( (!(strspn($6,"0123456789")==strlen($6))) && $1==258 && (fl==0))
 			{   printf("\nError : Type Mismatch : Line %d\n",printline());
 				fl=1; }
@@ -643,7 +643,7 @@ declaration_statement
 	;
 
 array
- 	: ID {push($1);}'[' expression']'
+ 	: IDENTIFIER {push($1);}'[' expression']'
 	;
 %%
 
